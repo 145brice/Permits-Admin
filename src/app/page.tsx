@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 export default function AdminDashboard() {
   const [scrapersRunning, setScrapersRunning] = useState(false);
   const [permitsOn, setPermitsOn] = useState(true);
-  const [soldOn, setSoldOn] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
   const backendUrl = 'https://permits-back-end.onrender.com';
@@ -54,29 +53,6 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error:', error);
       alert('Error toggling permits');
-    }
-  };
-
-  // Toggle sold properties
-  const toggleSold = async () => {
-    const newState = !soldOn;
-    try {
-      const response = await fetch(`${backendUrl}/api/switch/sold`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ on: newState }),
-      });
-
-      if (response.ok) {
-        setSoldOn(newState);
-      } else {
-        alert('Error toggling sold properties');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error toggling sold properties');
     }
   };
 
@@ -136,7 +112,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Toggle Switches */}
-      <div style={{ display: 'flex', gap: '40px', marginBottom: '40px' }}>
+      <div style={{ marginBottom: '40px' }}>
         {/* Permits Toggle */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Permits</div>
@@ -155,27 +131,6 @@ export default function AdminDashboard() {
             }}
           >
             {permitsOn ? 'ON' : 'OFF'}
-          </button>
-        </div>
-
-        {/* Sold Properties Toggle */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Sold Properties</div>
-          <button
-            onClick={toggleSold}
-            style={{
-              backgroundColor: soldOn ? '#28a745' : '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '25px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontFamily: 'monospace',
-              minWidth: '120px'
-            }}
-          >
-            {soldOn ? 'ON' : 'OFF'}
           </button>
         </div>
       </div>
