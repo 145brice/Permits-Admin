@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const runScrapers = async () => {
     setScrapersRunning(true);
     try {
+      console.log('Starting scraper run...');
       const response = await fetch(`${backendUrl}/api/run-scrapers`, {
         method: 'POST',
         headers: {
@@ -21,14 +22,26 @@ export default function AdminDashboard() {
         },
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response:', response);
+
       if (response.ok) {
+        const result = await response.json();
+        console.log('Scraper result:', result);
         alert('Scrapers completed successfully!');
+        // Refresh logs and leads immediately after running
+        setTimeout(() => {
+          fetchLogs();
+          fetchLeads();
+        }, 1000);
       } else {
-        alert('Error running scrapers');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        alert(`Error running scrapers: ${response.status} - ${errorText}`);
       }
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error running scrapers');
+      console.error('Network error:', error);
+      alert(`Network error: ${error.message}`);
     } finally {
       setScrapersRunning(false);
     }
