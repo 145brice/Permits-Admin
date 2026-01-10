@@ -6,6 +6,7 @@ export default function AdminDashboard() {
   const [scrapersRunning, setScrapersRunning] = useState(false);
   const [permitsOn, setPermitsOn] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
 
   const backendUrl = 'https://permits-back-end.onrender.com';
 
@@ -70,10 +71,27 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch leads
+  const fetchLeads = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/get-leads`);
+      if (response.ok) {
+        const data = await response.json();
+        setLeads(data.leads || data);
+      }
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+    }
+  };
+
   // Fetch logs every 10 seconds
   useEffect(() => {
     fetchLogs();
-    const interval = setInterval(fetchLogs, 10000);
+    fetchLeads();
+    const interval = setInterval(() => {
+      fetchLogs();
+      fetchLeads();
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -136,8 +154,26 @@ export default function AdminDashboard() {
       </div>
 
       {/* Logs Box */}
-      <div style={{ width: '80%', maxWidth: '800px' }}>
+      <div style={{ width: '80%', maxWidth: '800px', marginBottom: '40px' }}>
         <h2 style={{ marginBottom: '20px' }}>Live Logs</h2>
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          border: '1px solid #333',
+          borderRadius: '5px',
+          padding: '20px',
+          height: '300px',
+          overflowY: 'auto',
+          fontFamily: 'monospace',
+          fontSize: '0.9rem',
+          whiteSpace: 'pre-wrap'
+        }}>
+          {logs.length > 0 ? logs.join('\n') : 'Loading logs...'}
+        </div>
+      </div>
+
+      {/* Leads Box */}
+      <div style={{ width: '80%', maxWidth: '800px' }}>
+        <h2 style={{ marginBottom: '20px' }}>Recent Leads ({leads.length})</h2>
         <div style={{
           backgroundColor: '#1a1a1a',
           border: '1px solid #333',
@@ -146,10 +182,34 @@ export default function AdminDashboard() {
           height: '400px',
           overflowY: 'auto',
           fontFamily: 'monospace',
-          fontSize: '0.9rem',
-          whiteSpace: 'pre-wrap'
+          fontSize: '0.9rem'
         }}>
-          {logs.length > 0 ? logs.join('\n') : 'Loading logs...'}
+          {leads.length > 0 ? (
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {leads.slice(0, 20).map((lead, index) => (
+                <div key={index} style={{
+                  backgroundColor: '#2a2a2a',
+                  padding: '10px',
+                  borderRadius: '3px',
+                  border: '1px solid #444'
+                }}>
+                  <div style={{ color: '#4CAF50', fontWeight: 'bold' }}>
+                    {lead.address || lead.location || 'Unknown Location'}
+                  </div>
+                  <div style={{ color: '#BBB', fontSize: '0.8rem', marginTop: '5px' }}>
+                    {lead.permit_type || lead.type || 'Permit'} • {lead.date || lead.filed_date || 'Recent'}
+                  </div>
+                  {lead.description && (
+                    <div style={{ color: '#DDD', fontSize: '0.8rem', marginTop: '5px' }}>
+                      {lead.description.length > 100 ? lead.description.substring(0, 100) + '...' : lead.description}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            'Loading leads...'
+          )}
         </div>
       </div>
     </div>
