@@ -27,10 +27,17 @@ export default function AdminDashboard() {
 
         if (response.ok) {
           setScrapersRunning(false);
-          setScraperStatus('🛑 Scraper stop signal sent!');
+          setScraperStatus('🛑 Kill switch activated! Scrapers will stop after current city.');
+
+          // Clear the polling interval
+          if ((window as any).scraperPollInterval) {
+            clearInterval((window as any).scraperPollInterval);
+          }
+
           // Refresh logs immediately
           setTimeout(() => {
             fetchLogs();
+            fetchLeads();
           }, 1000);
         } else {
           const errorText = await response.text();
@@ -61,7 +68,7 @@ export default function AdminDashboard() {
         if (response.ok) {
           const result = await response.json();
           console.log('Scraper result:', result);
-          setScraperStatus('✅ Scrapers triggered! Watch the logs below for real-time progress...');
+          setScraperStatus('✅ Scrapers running! Watch logs below. Click "Stop Scrapers" if you need to stop early.');
 
           // Start polling logs more frequently while scrapers run
           const pollInterval = setInterval(() => {
@@ -69,24 +76,19 @@ export default function AdminDashboard() {
             fetchLeads();
           }, 2000); // Poll every 2 seconds
 
-          // Stop aggressive polling after 2 minutes
-          setTimeout(() => {
-            clearInterval(pollInterval);
-            setScraperStatus('✅ Scraper run complete. Check logs and leads below.');
-            fetchLogs();
-            fetchLeads();
-            fetchLeadsStructure();
-          }, 120000);
+          // Keep polling indefinitely - user must click Stop button or wait for completion message in logs
+          // Store interval ID so it can be cleared later if needed
+          (window as any).scraperPollInterval = pollInterval;
 
         } else {
           const errorText = await response.text();
           console.error('Error response:', errorText);
           setScraperStatus(`❌ Error: ${errorText}`);
+          setScrapersRunning(false);
         }
       } catch (error) {
         console.error('Network error:', error);
         setScraperStatus(`❌ Network error: ${error}`);
-      } finally {
         setScrapersRunning(false);
       }
     }
