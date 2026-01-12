@@ -10,6 +10,7 @@ export default function AdminDashboard() {
   const [leadsStructure, setLeadsStructure] = useState<any>({});
   const [scraperStatus, setScraperStatus] = useState<string>('');
   const [cityStats, setCityStats] = useState<any>({});
+  const [supabaseStats, setSupabaseStats] = useState<any>(null);
 
   const backendUrl = 'https://permits-back-end.onrender.com';
 
@@ -178,6 +179,9 @@ export default function AdminDashboard() {
       if (response.ok) {
         const data = await response.json();
         setLeadsStructure(data);
+        if (data.supabase) {
+          setSupabaseStats(data.supabase);
+        }
       }
     } catch (error) {
       console.error('Error fetching leads structure:', error);
@@ -318,9 +322,55 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Saved Leads Structure */}
+      {/* Supabase Database Stats */}
       <div style={{ width: '80%', maxWidth: '800px', marginBottom: '40px' }}>
-        <h2 style={{ marginBottom: '20px' }}>Saved Leads Structure</h2>
+        <h2 style={{ marginBottom: '20px' }}>☁️ Supabase Database Stats</h2>
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          border: '2px solid #10b981',
+          borderRadius: '5px',
+          padding: '20px',
+          fontFamily: 'monospace',
+          fontSize: '0.9rem'
+        }}>
+          {supabaseStats ? (
+            <div>
+              {supabaseStats.error ? (
+                <div style={{ color: '#ef4444' }}>Error: {supabaseStats.error}</div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#10b981' }}>
+                    <strong>Total Permits in Database:</strong> {supabaseStats.total?.toLocaleString() || 0}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    {supabaseStats.cities && Object.entries(supabaseStats.cities).map(([city, count]: [string, any]) => (
+                      <div key={city} style={{
+                        backgroundColor: '#2a2a2a',
+                        padding: '10px',
+                        borderRadius: '5px',
+                        border: '1px solid #10b981'
+                      }}>
+                        <div style={{ color: '#10b981', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                          {city}
+                        </div>
+                        <div style={{ fontSize: '1.5rem', color: 'white' }}>
+                          {count.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            'Loading Supabase stats...'
+          )}
+        </div>
+      </div>
+
+      {/* Saved Leads Structure (Local CSV Backups) */}
+      <div style={{ width: '80%', maxWidth: '800px', marginBottom: '40px' }}>
+        <h2 style={{ marginBottom: '20px' }}>📁 Local CSV Backups</h2>
         <div style={{
           backgroundColor: '#1a1a1a',
           border: '1px solid #333',
@@ -345,7 +395,7 @@ export default function AdminDashboard() {
               </div>
             ))
           ) : (
-            'Loading leads structure...'
+            'Loading local CSV structure...'
           )}
         </div>
       </div>
