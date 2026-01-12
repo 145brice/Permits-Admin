@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 
@@ -8,6 +8,8 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<string[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsStructure, setLeadsStructure] = useState<any>({});
+  const [scraperStatus, setScraperStatus] = useState<string>('');
+  const [cityStats, setCityStats] = useState<any>({});
 
   const backendUrl = 'https://permits-back-end.onrender.com';
 
@@ -16,7 +18,7 @@ export default function AdminDashboard() {
     if (scrapersRunning) {
       // Stop scrapers
       try {
-        const response = await fetch(${backendUrl}/api/stop-scrapers, {
+        const response = await fetch(`${backendUrl}/api/stop-scrapers`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -25,7 +27,7 @@ export default function AdminDashboard() {
 
         if (response.ok) {
           setScrapersRunning(false);
-          alert('Scraper stop signal sent!');
+          setScraperStatus('🛑 Scraper stop signal sent!');
           // Refresh logs immediately
           setTimeout(() => {
             fetchLogs();
@@ -33,18 +35,20 @@ export default function AdminDashboard() {
         } else {
           const errorText = await response.text();
           console.error('Error response:', errorText);
-          alert(Error stopping scrapers:  - );
+          setScraperStatus(`❌ Error stopping scrapers: ${errorText}`);
         }
       } catch (error) {
         console.error('Network error:', error);
-        alert(Network error: );
+        setScraperStatus(`❌ Network error: ${error}`);
       }
     } else {
       // Start scrapers
       setScrapersRunning(true);
+      setScraperStatus('🚀 Starting scrapers... This may take 1-3 minutes.');
+
       try {
         console.log('Starting scraper run...');
-        const response = await fetch(${backendUrl}/api/run-scrapers, {
+        const response = await fetch(`${backendUrl}/api/run-scrapers`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -57,20 +61,31 @@ export default function AdminDashboard() {
         if (response.ok) {
           const result = await response.json();
           console.log('Scraper result:', result);
-          alert('Scrapers completed successfully!');
-          // Refresh logs and leads immediately after running
-          setTimeout(() => {
+          setScraperStatus('✅ Scrapers triggered! Watch the logs below for real-time progress...');
+
+          // Start polling logs more frequently while scrapers run
+          const pollInterval = setInterval(() => {
             fetchLogs();
             fetchLeads();
-          }, 1000);
+          }, 2000); // Poll every 2 seconds
+
+          // Stop aggressive polling after 2 minutes
+          setTimeout(() => {
+            clearInterval(pollInterval);
+            setScraperStatus('✅ Scraper run complete. Check logs and leads below.');
+            fetchLogs();
+            fetchLeads();
+            fetchLeadsStructure();
+          }, 120000);
+
         } else {
           const errorText = await response.text();
           console.error('Error response:', errorText);
-          alert(Error running scrapers:  - );
+          setScraperStatus(`❌ Error: ${errorText}`);
         }
       } catch (error) {
         console.error('Network error:', error);
-        alert(Network error: );
+        setScraperStatus(`❌ Network error: ${error}`);
       } finally {
         setScrapersRunning(false);
       }
@@ -81,7 +96,7 @@ export default function AdminDashboard() {
   const togglePermits = async () => {
     const newState = !permitsOn;
     try {
-      const response = await fetch(${backendUrl}/api/switch/permits, {
+      const response = await fetch(`${backendUrl}/api/switch/permits`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,10 +118,10 @@ export default function AdminDashboard() {
   // Fetch logs
   const fetchLogs = async () => {
     try {
-      const response = await fetch(${backendUrl}/api/get-logs);
+      const response = await fetch(`${backendUrl}/api/get-logs`);
       if (response.ok) {
         const text = await response.text();
-        const lines = text.split('\n').slice(-20); // Get last 20 lines
+        const lines = text.split('\n').slice(-30); // Get last 30 lines
         setLogs(lines);
       }
     } catch (error) {
@@ -114,20 +129,37 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fetch leads
+  // Fetch leads and calculate city stats
   const fetchLeads = async () => {
     try {
-      const response = await fetch(${backendUrl}/last-week?cities=austin,nashville,sanantonio,houston,chattanooga,charlotte,phoenix);
+      const response = await fetch(`${backendUrl}/last-week?cities=austin,nashville,sanantonio,houston,chattanooga,charlotte,phoenix`);
       if (response.ok) {
         const data = await response.json();
+
+        // Calculate city stats
+        const stats: any = {};
+        for (const [city, cityData] of Object.entries(data)) {
+          if (city !== 'total_count' && city !== 'all_permits' && cityData && typeof cityData === 'object') {
+            const typedData = cityData as any;
+            stats[city] = {
+              count: typedData.count || 0,
+              permits: typedData.permits?.length || 0
+            };
+          }
+        }
+        setCityStats(stats);
+
         // Flatten all permits from all cities
         const allLeads = [];
         for (const [city, cityData] of Object.entries(data)) {
-          if (city !== 'total_count' && city !== 'all_permits' && cityData.permits) {
-            allLeads.push(...cityData.permits.map((permit: any) => ({
-              ...permit,
-              city: city
-            })));
+          if (city !== 'total_count' && city !== 'all_permits' && cityData && typeof cityData === 'object') {
+            const typedData = cityData as any;
+            if (typedData.permits) {
+              allLeads.push(...typedData.permits.map((permit: any) => ({
+                ...permit,
+                city: city
+              })));
+            }
           }
         }
         setLeads(allLeads);
@@ -140,7 +172,7 @@ export default function AdminDashboard() {
   // Fetch leads structure
   const fetchLeadsStructure = async () => {
     try {
-      const response = await fetch(${backendUrl}/api/get-leads-structure);
+      const response = await fetch(`${backendUrl}/api/get-leads-structure`);
       if (response.ok) {
         const data = await response.json();
         setLeadsStructure(data);
@@ -178,7 +210,7 @@ export default function AdminDashboard() {
       <h1 style={{ marginBottom: '40px', fontSize: '2rem' }}>Admin Dashboard</h1>
 
       {/* Run/Stop Scrapers Button */}
-      <div style={{ marginBottom: '40px' }}>
+      <div style={{ marginBottom: '20px', textAlign: 'center' }}>
         <button
           onClick={handleScraperAction}
           style={{
@@ -194,6 +226,52 @@ export default function AdminDashboard() {
         >
           {scrapersRunning ? 'Stop Scrapers' : 'Run Scrapers Now'}
         </button>
+
+        {/* Status Message */}
+        {scraperStatus && (
+          <div style={{
+            marginTop: '15px',
+            padding: '15px',
+            backgroundColor: '#1a1a1a',
+            border: '2px solid #007bff',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            maxWidth: '600px',
+            margin: '15px auto 0'
+          }}>
+            {scraperStatus}
+          </div>
+        )}
+      </div>
+
+      {/* City Stats */}
+      <div style={{ marginBottom: '40px', width: '80%', maxWidth: '800px' }}>
+        <h2 style={{ marginBottom: '20px' }}>City Status (Last 7 Days)</h2>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '15px'
+        }}>
+          {Object.entries(cityStats).map(([city, stats]: [string, any]) => (
+            <div key={city} style={{
+              backgroundColor: '#1a1a1a',
+              border: '2px solid #28a745',
+              borderRadius: '8px',
+              padding: '15px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', textTransform: 'capitalize', marginBottom: '10px' }}>
+                {city}
+              </div>
+              <div style={{ fontSize: '2rem', color: '#28a745', fontWeight: 'bold' }}>
+                {stats.permits}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#999' }}>
+                permits
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Toggle Switches */}
@@ -222,16 +300,16 @@ export default function AdminDashboard() {
 
       {/* Logs Box */}
       <div style={{ width: '80%', maxWidth: '800px', marginBottom: '40px' }}>
-        <h2 style={{ marginBottom: '20px' }}>Live Logs</h2>
+        <h2 style={{ marginBottom: '20px' }}>Live Logs (Last 30 lines - Updates every 2-10s)</h2>
         <div style={{
           backgroundColor: '#1a1a1a',
           border: '1px solid #333',
           borderRadius: '5px',
           padding: '20px',
-          height: '300px',
+          height: '400px',
           overflowY: 'auto',
           fontFamily: 'monospace',
-          fontSize: '0.9rem',
+          fontSize: '0.85rem',
           whiteSpace: 'pre-wrap'
         }}>
           {logs.length > 0 ? logs.join('\n') : 'Loading logs...'}
@@ -272,7 +350,7 @@ export default function AdminDashboard() {
 
       {/* Leads Box */}
       <div style={{ width: '80%', maxWidth: '800px' }}>
-        <h2 style={{ marginBottom: '20px' }}>Recent Leads ({leads.length})</h2>
+        <h2 style={{ marginBottom: '20px' }}>Recent Leads ({leads.length} total)</h2>
         <div style={{
           backgroundColor: '#1a1a1a',
           border: '1px solid #333',
@@ -296,6 +374,7 @@ export default function AdminDashboard() {
                     {lead.address || lead.location || 'Unknown Location'}
                   </div>
                   <div style={{ color: '#BBB', fontSize: '0.8rem', marginTop: '5px' }}>
+                    {lead.city && <span style={{ color: '#007bff' }}>📍 {lead.city} • </span>}
                     {lead.permit_type || lead.type || 'Permit'} • {lead.date || lead.filed_date || 'Recent'}
                   </div>
                   {lead.description && (
