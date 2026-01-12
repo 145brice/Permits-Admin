@@ -117,10 +117,20 @@ export default function AdminDashboard() {
   // Fetch leads
   const fetchLeads = async () => {
     try {
-      const response = await fetch(${backendUrl}/api/get-leads);
+      const response = await fetch(${backendUrl}/last-week?cities=austin,nashville,sanantonio,houston,chattanooga,charlotte,phoenix);
       if (response.ok) {
         const data = await response.json();
-        setLeads(data.leads || data);
+        // Flatten all permits from all cities
+        const allLeads = [];
+        for (const [city, cityData] of Object.entries(data)) {
+          if (city !== 'total_count' && city !== 'all_permits' && cityData.permits) {
+            allLeads.push(...cityData.permits.map((permit: any) => ({
+              ...permit,
+              city: city
+            })));
+          }
+        }
+        setLeads(allLeads);
       }
     } catch (error) {
       console.error('Error fetching leads:', error);
