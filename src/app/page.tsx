@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   const [scraperStatus, setScraperStatus] = useState<string>('');
   const [cityStats, setCityStats] = useState<any>({});
   const [supabaseStats, setSupabaseStats] = useState<any>(null);
+  const [recentPermits, setRecentPermits] = useState<any[]>([]);
+  const [selectedCity, setSelectedCity] = useState('austin');
 
   const backendUrl = 'https://permits-back-end.onrender.com';
 
@@ -188,11 +190,24 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchRecentPermits = async (city: string) => {
+    try {
+      const response = await fetch(`${backendUrl}/api/get-recent-permits?city=${city}&limit=50`);
+      if (response.ok) {
+        const data = await response.json();
+        setRecentPermits(data.permits || []);
+      }
+    } catch (error) {
+      console.error('Error fetching recent permits:', error);
+    }
+  };
+
   // Fetch logs, leads, and leads structure every 10 seconds
   useEffect(() => {
     fetchLogs();
     fetchLeads();
     fetchLeadsStructure();
+    fetchRecentPermits(selectedCity);
     const interval = setInterval(() => {
       fetchLogs();
       fetchLeads();
@@ -200,6 +215,11 @@ export default function AdminDashboard() {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch permits when city changes
+  useEffect(() => {
+    fetchRecentPermits(selectedCity);
+  }, [selectedCity]);
 
   return (
     <div style={{
@@ -364,6 +384,99 @@ export default function AdminDashboard() {
             </div>
           ) : (
             'Loading Supabase stats...'
+          )}
+        </div>
+      </div>
+
+      {/* Recent Permits Viewer */}
+      <div style={{ width: '80%', maxWidth: '800px', marginBottom: '40px' }}>
+        <h2 style={{ marginBottom: '20px' }}>📋 Recent Permits</h2>
+
+        {/* City Selector */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ marginRight: '10px' }}>Select City:</label>
+          <select
+            value={selectedCity}
+            onChange={(e) => setSelectedCity(e.target.value)}
+            style={{
+              padding: '8px 15px',
+              backgroundColor: '#2a2a2a',
+              color: 'white',
+              border: '1px solid #10b981',
+              borderRadius: '5px',
+              fontSize: '1rem',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="austin">Austin</option>
+            <option value="houston">Houston</option>
+            <option value="nashville">Nashville</option>
+            <option value="sanantonio">San Antonio</option>
+          </select>
+        </div>
+
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          border: '2px solid #3b82f6',
+          borderRadius: '5px',
+          padding: '20px',
+          fontFamily: 'monospace',
+          fontSize: '0.85rem',
+          maxHeight: '600px',
+          overflowY: 'auto'
+        }}>
+          {recentPermits.length > 0 ? (
+            <div>
+              <div style={{ marginBottom: '15px', color: '#3b82f6', fontSize: '1rem' }}>
+                <strong>Showing {recentPermits.length} most recent permits from {selectedCity}</strong>
+              </div>
+              {recentPermits.map((permit, index) => (
+                <div key={index} style={{
+                  backgroundColor: '#2a2a2a',
+                  padding: '15px',
+                  marginBottom: '10px',
+                  borderRadius: '5px',
+                  border: '1px solid #3b82f6'
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '10px' }}>
+                    <div style={{ color: '#9ca3af' }}>Permit #:</div>
+                    <div style={{ color: 'white', fontWeight: 'bold' }}>{permit.permit_number}</div>
+
+                    <div style={{ color: '#9ca3af' }}>Address:</div>
+                    <div style={{ color: 'white' }}>{permit.address}</div>
+
+                    <div style={{ color: '#9ca3af' }}>Type:</div>
+                    <div style={{ color: '#3b82f6' }}>{permit.permit_type}</div>
+
+                    <div style={{ color: '#9ca3af' }}>Issue Date:</div>
+                    <div style={{ color: 'white' }}>{permit.issue_date}</div>
+
+                    {permit.estimated_cost && (
+                      <>
+                        <div style={{ color: '#9ca3af' }}>Est. Cost:</div>
+                        <div style={{ color: '#10b981' }}>${permit.estimated_cost.toLocaleString()}</div>
+                      </>
+                    )}
+
+                    {permit.description && (
+                      <>
+                        <div style={{ color: '#9ca3af' }}>Description:</div>
+                        <div style={{ color: '#d1d5db' }}>{permit.description}</div>
+                      </>
+                    )}
+
+                    {permit.lat && permit.lng && (
+                      <>
+                        <div style={{ color: '#9ca3af' }}>Coordinates:</div>
+                        <div style={{ color: '#60a5fa' }}>{permit.lat}, {permit.lng}</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#9ca3af' }}>Loading permits...</div>
           )}
         </div>
       </div>
